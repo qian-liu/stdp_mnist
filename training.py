@@ -3,7 +3,8 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import scipy.io as sio
 import pyNN.nest as p
-import sys  
+import sys
+import os
 
 # In[18]:
 
@@ -42,7 +43,7 @@ silence = 0 #ms
 num_epo = 1
 num_output = 10
 #num_par = 2000
-num_per_par = 100
+num_per_par = 200
 cell_params_lif = {'cm': 0.25,
                    'i_offset': 0.0,
                    'tau_m': 20.0,
@@ -65,16 +66,17 @@ TeachingPoission = list()
 
 # In[ ]:
 
-for run_i in range(par_start, par_start+num_per_par):
+#for run_i in range(par_start, par_start+num_per_par):
+for run_i in range(num_per_par):
     p.setup(timestep=1.0, min_delay=1.0, max_delay=3.0)
     pop_input = p.Population(input_size*input_size, p.IF_curr_exp, cell_params_lif)
     ImagePoission = []
     TeachingPoission = []
-    sys.stderr.write("numer=%d\n"%run_i)
+    sys.stderr.write("numer=%d\n"%(run_i+par_start))
 
     for epo in range(num_epo):
         for i in range(num_train):
-            ind = i + run_i*num_train
+            ind = i + (run_i+par_start)*num_train
             pop = p.Population(input_size*input_size,
                                               p.SpikeSourcePoisson,
                                               {'rate' : MIN_rate,#test_x[i],
@@ -123,8 +125,11 @@ for run_i in range(par_start, par_start+num_per_par):
     '''
     if run_i == 0:
         stdp_weight = 0.0
+        directory = 'weight%d'%par_start
+        if not os.path.exists(directory):
+            os.makedirs(directory)
     else:
-        stdp_weight = np.load('saved/weight_%d.npy'%(run_i-1))
+        stdp_weight = np.load('%s/weight_%d.npy'%(directory,(run_i-1)))
     proj_stdp = p.Projection(
         #pop_input, pop_output, p.AllToAllConnector(weights = weight_distr),
         pop_input, pop_output, p.AllToAllConnector(weights = stdp_weight),
@@ -146,7 +151,7 @@ for run_i in range(par_start, par_start+num_per_par):
     #print pre
     p.run(1.0*num_epo*num_train*(dur_train+silence))
     post = proj_stdp.getWeights(format='array',gather=False)
-    np.save('saved/weight_%d'%run_i,post)
+    np.save('%s/weight_%d.npy'%(directory,run_i),post)
     '''
     plt.figure(figsize=(18,6))
     for i in range(num_output):
